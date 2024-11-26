@@ -2,12 +2,14 @@ import openai
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 
 # Set your API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+openai.log = "debug"
 
 
 # Define categories
@@ -60,7 +62,12 @@ CATEGORY_3_TECHNOLOGY = [
 ]
 
 # Load dataset
-freelancer_data = pd.read_csv('Dataset/Final_Upwork_Dataset copy.csv')
+freelancer_data = pd.read_csv('Dataset/encoded_data.csv')
+
+
+
+
+
 
 # Function to classify job descriptions
 def classify_job_description(job_description):
@@ -70,7 +77,7 @@ def classify_job_description(job_description):
     print(f"Sending request to API for job description:\n{job_description}\n")
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo", #Replace model="gpt-3.5-turbo" with model="gpt-4o-mini".
             messages=[
                 {"role": "system", "content": (
                     "You are a classification model that identifies the best fit categories for a given job "
@@ -85,7 +92,7 @@ def classify_job_description(job_description):
                     "FOR TECHNOLOGY IT CAN BE MORE THAN 1 DEPENDING ON THE JOB DESCRIPTION."
                     "For technologies, only add technologies from the 3. TECHNOLOGY/TOOLS list i provided."
                     "Do not added irrelevant commennts like (if needed) inside the value just return the same word exactly from the lists"
-                    "Below is an example you can use for api RESPONS"
+                    "Below is an example you can use for api response"
                     "API Response:"
                     "Core Competencies: BI and Analytics"
                     "Core Skills: Data Engineering"
@@ -95,9 +102,9 @@ def classify_job_description(job_description):
             ]
         )
         categories = response['choices'][0]['message']['content']
-        print(f"API Response:\n{categories}\n")
+        #print(f"API Response:\n{categories}\n")
         return categories
-    except openai.error.OpenAIAPIError as e:
+    except openai.APIError  as e:
         print(f"Error during OpenAI API call: {e}")
         return None
 
@@ -132,15 +139,17 @@ def filter_technologies(technologies):
 
     return ", ".join(unique_valid_technologies)
 
-# Process first 5 rows
-freelancer_data_sample = freelancer_data.head(5).copy()
+freelancer_data_sample = freelancer_data
 
 # Initialize categories as empty
 freelancer_data_sample["Category 1"] = None
 freelancer_data_sample["Category 2"] = None
 freelancer_data_sample["Category 3"] = None
 
-for index, row in freelancer_data_sample.iterrows():
+start_index = 0  # Replace with the actual row number to resume from
+#for index, row in freelancer_data_sample.iterrows():
+
+for index, row in freelancer_data_sample.iloc[start_index:].iterrows():
     job_description = row["Description"]
 
     # Skip empty job descriptions
@@ -177,6 +186,12 @@ for index, row in freelancer_data_sample.iterrows():
         freelancer_data_sample.loc[index, "Category 1"] = core_competencies.strip() if core_competencies else None
         freelancer_data_sample.loc[index, "Category 2"] = core_skills.strip() if core_skills else None
         freelancer_data_sample.loc[index, "Category 3"] = filter_technologies(technology_tools)
+        #if index % 50 == 0:  # Save every 50 rows
+            #freelancer_data_sample.to_csv('Dataset/Updated_Freelancer_Dataset.csv', index=False)
+           # print(f"Progress saved at row {index}.")
+           # print(f"Waiting for {9} seconds to respect rate limits...")
+           # time.sleep(9) #seconds
+
     except Exception as e:
         print(f"Error parsing classification results for row {index}: {e}")
         freelancer_data_sample.loc[index, "Category 1"] = None
